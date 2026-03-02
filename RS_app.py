@@ -395,7 +395,6 @@ def normalize_zone_type(raw: str) -> str:
             return valid
     return "secondary"
 
-# ── IMPROVED gen_layout_zones ─────────────────────────────────────────────────
 def gen_layout_zones(rec, process_name, layout_bytes, ctx):
     recs_text = "\n".join(
         ["- " + r.get("judul","") + ": " + r.get("area_terdampak","")
@@ -404,51 +403,72 @@ def gen_layout_zones(rec, process_name, layout_bytes, ctx):
 
     zones_prompt = (
         "Kamu adalah sistem anotasi peta pabrik PT Guntner Plant 1.\n"
-        "Layout pabrik dilampirkan sebagai PDF.\n\n"
-        "=== TUGAS UTAMA ===\n"
-        "Buat TEPAT 4 zona annotasi untuk proses NNVA: '" + process_name + "'\n\n"
-        "=== ATURAN KOORDINAT (WAJIB DIIKUTI) ===\n"
-        "1. Koordinat adalah RASIO 0.0-1.0 dari lebar/tinggi gambar\n"
-        "2. Setiap zona harus KECIL dan SPESIFIK (lebar max 0.15, tinggi max 0.15)\n"
-        "   - BENAR: x1=0.35, y1=0.30, x2=0.48, y2=0.42\n"
-        "   - SALAH: x1=0.10, y1=0.20, x2=0.85, y2=0.80  (terlalu besar!)\n"
-        "3. Area pabrik utama ada di tengah (x: 0.25-0.80, y: 0.20-0.75)\n"
-        "4. Jangan buat zona yang menutupi >10% area gambar\n\n"
-        "=== 4 ZONA YANG HARUS DIBUAT ===\n"
-        "ZONA 1 — type: 'problem'\n"
-        "  Temukan area TEPAT di layout di mana proses '" + process_name + "' terjadi\n"
-        "  Ukuran kecil: lebar ~0.10-0.12, tinggi ~0.08-0.10\n\n"
-        "ZONA 2 — type: 'solution'\n"
-        "  Area terdekat yang bisa jadi lokasi perbaikan\n"
-        "  Ukuran kecil: lebar ~0.10-0.12, tinggi ~0.08-0.10\n\n"
-        "ZONA 3 — type: 'flow'\n"
-        "  Satu koridor/jalur sempit yang dilalui operator\n"
-        "  Ukuran memanjang: lebar ~0.03-0.05, tinggi ~0.15-0.25\n\n"
-        "ZONA 4 — type: 'secondary'\n"
-        "  Satu area yang ikut terdampak\n"
-        "  Ukuran kecil: lebar ~0.10-0.12, tinggi ~0.08-0.10\n\n"
+        "Layout pabrik dilampirkan sebagai PDF — BACA dengan teliti semua teks label area.\n\n"
+
+        "=== LANGKAH WAJIB SEBELUM MENENTUKAN KOORDINAT ===\n"
+        "LANGKAH 1 — IDENTIFIKASI NAMA AREA:\n"
+        "  Baca semua teks yang tertulis di layout PDF.\n"
+        "  Cari area/workstation yang namanya paling relevan dengan proses: '" + process_name + "'\n"
+        "  Contoh: jika proses = 'melepas laminasi inside tray',\n"
+        "    → cari teks seperti 'MANUAL TRAY', 'TRAY PROCESSING', 'ASSEMBLING TRAY', dll\n"
+        "    → bukan asal tebak tengah layout!\n\n"
+
+        "LANGKAH 2 — TENTUKAN KOORDINAT DARI NAMA AREA YANG DITEMUKAN:\n"
+        "  Setelah menemukan nama area tersebut di PDF,\n"
+        "  baru tentukan koordinat x1,y1,x2,y2 berdasarkan POSISI ASLI teks/kotak area itu.\n"
+        "  Koordinat adalah RASIO 0.0-1.0 dari lebar/tinggi halaman PDF.\n\n"
+
+        "=== ATURAN ZONA ===\n"
+        "Buat TEPAT 4 zona:\n\n"
+
+        "ZONA 1 — type: 'problem' (WAJIB: lokasi area yang namanya relevan dengan proses NNVA)\n"
+        "  → Ini HARUS di area yang namanya kamu temukan di langkah 1\n"
+        "  → Ukuran: lebar ~0.08-0.14, tinggi ~0.07-0.12\n\n"
+
+        "ZONA 2 — type: 'solution' (area terdekat dari zona 1 yang bisa jadi lokasi perbaikan)\n"
+        "  → Pilih area nyata di sebelah/dekat zona 1, bukan tempat kosong\n"
+        "  → Ukuran: lebar ~0.08-0.14, tinggi ~0.07-0.12\n\n"
+
+        "ZONA 3 — type: 'flow' (jalur/koridor yang menghubungkan zona 1 ke zona 2)\n"
+        "  → Gambarkan sebagai garis sempit memanjang\n"
+        "  → Ukuran: lebar ~0.02-0.05, tinggi ~0.10-0.30\n\n"
+
+        "ZONA 4 — type: 'secondary' (area lain yang ikut terdampak NNVA ini)\n"
+        "  → Pilih area nyata di layout yang relevan\n"
+        "  → Ukuran: lebar ~0.08-0.14, tinggi ~0.07-0.12\n\n"
+
+        "=== ATURAN UKURAN (WAJIB) ===\n"
+        "- Zona TIDAK BOLEH menutupi >10% area gambar\n"
+        "- Lebar maksimal zona: 0.15 (kecuali flow: 0.05)\n"
+        "- Tinggi maksimal zona: 0.18 (kecuali flow: 0.35)\n\n"
+
         "=== REKOMENDASI PERBAIKAN ===\n" + recs_text + "\n\n"
+
         "=== ATURAN LABEL ===\n"
-        "label = TINDAKAN singkat max 35 karakter (bukan nama area)\n"
-        "  BENAR: 'Kurangi jarak ambil material'\n"
-        "  SALAH: 'FA & Electric Assembling Workstation'\n"
-        "action = 1 kalimat konkret apa yang harus dilakukan\n"
-        "distance_m = estimasi jarak dalam meter (WAJIB DIISI angka saja)\n"
-        "  Contoh: '8', '12', '25', '5'\n\n"
-        "Kembalikan HANYA JSON ini:\n"
+        "label = nama area yang KAMU TEMUKAN DI PDF + tindakan singkat (max 35 karakter)\n"
+        "  BENAR: 'Manual Tray — kurangi jarak material'\n"
+        "  SALAH: 'Area bermasalah di tengah'\n"
+        "action = 1 kalimat konkret tindakan perbaikan\n"
+        "area_name = nama persis area seperti tertulis di PDF (wajib diisi!)\n"
+        "distance_m = estimasi jarak dalam meter (angka saja, contoh: '8')\n\n"
+
+        "Kembalikan HANYA JSON (tidak ada teks lain):\n"
         "{\n"
+        '  "area_identified": "Nama area yang ditemukan di PDF untuk proses ini",\n'
         '  "zones": [\n'
         "    {\n"
-        '      "label": "Tindakan singkat max 35 karakter",\n'
+        '      "label": "NamaArea — tindakan singkat",\n'
+        '      "area_name": "Nama persis dari PDF",\n'
         '      "type": "problem",\n'
-        '      "x1": 0.35, "y1": 0.30, "x2": 0.47, "y2": 0.41,\n'
+        '      "x1": 0.35, "y1": 0.30, "x2": 0.46, "y2": 0.40,\n'
         '      "action": "Satu kalimat tindakan konkret",\n'
-        '      "description": "Penjelasan kenapa area ini dipilih",\n'
+        '      "description": "Kenapa area ini dipilih, berdasarkan teks di layout",\n'
         '      "distance_m": "8"\n'
         "    }\n"
         "  ]\n"
         "}\n"
-        "INGAT: Zona harus KECIL. Lebar zona jangan lebih dari 0.15."
+        "INGAT: Zona 1 (problem) HARUS berada di area yang namanya relevan dengan '"
+        + process_name + "', bukan di tempat random!"
     )
 
     try:
@@ -461,12 +481,25 @@ def gen_layout_zones(rec, process_name, layout_bytes, ctx):
         }
         response = vision.generate_content([pdf_part, zones_prompt])
         text     = response.text
+
+        # Debug: tampilkan area yang ditemukan Gemini
+        if '"area_identified"' in text:
+            try:
+                raw = json.loads(text.split("```json")[-1].split("```")[0].strip()
+                                 if "```" in text else text)
+                area_found = raw.get("area_identified","")
+                if area_found:
+                    st.info(f"🔍 Gemini mengidentifikasi area: **{area_found}**")
+            except:
+                pass
+
         for fence in ["```json", "```"]:
             if fence in text:
                 s    = text.find(fence) + len(fence)
                 e    = text.find("```", s)
                 text = text[s:e].strip()
                 break
+
         data  = json.loads(text)
         zones = data.get("zones", [])
 
@@ -478,24 +511,31 @@ def gen_layout_zones(rec, process_name, layout_bytes, ctx):
                 default_dist = {"problem": "5", "flow": "15", "solution": "8", "secondary": "20"}
                 z["distance_m"] = default_dist.get(z["type"], "10")
 
-            x1, y1, x2, y2 = (float(z.get("x1", 0)), float(z.get("y1", 0)),
-                               float(z.get("x2", 0.5)), float(z.get("y2", 0.5)))
-            max_w = 0.18
-            max_h = 0.20
+            x1, y1, x2, y2 = (float(z.get("x1", 0.3)), float(z.get("y1", 0.3)),
+                               float(z.get("x2", 0.45)), float(z.get("y2", 0.45)))
+            max_w = 0.16
+            max_h = 0.18
             if z["type"] == "flow":
-                max_w = 0.08
+                max_w = 0.05
                 max_h = 0.35
+
             if (x2 - x1) > max_w:
                 cx = (x1 + x2) / 2
                 x1, x2 = cx - max_w/2, cx + max_w/2
             if (y2 - y1) > max_h:
                 cy = (y1 + y2) / 2
                 y1, y2 = cy - max_h/2, cy + max_h/2
+
+            # Pastikan dalam batas 0-1
+            x1, y1 = max(0.01, x1), max(0.01, y1)
+            x2, y2 = min(0.99, x2), min(0.99, y2)
+
             z.update({"x1": round(x1,3), "y1": round(y1,3),
                       "x2": round(x2,3), "y2": round(y2,3)})
 
+            # Label fallback ke area_name jika ada
             if not z.get("label"):
-                z["label"] = f"Zona {z['type']}"
+                z["label"] = z.get("area_name", f"Zona {z['type']}")
 
             fixed_zones.append(z)
 
