@@ -1062,7 +1062,7 @@ with tab_ai:
 
         lc1, lc2 = st.columns(2)
         with lc1:
-            st.markdown('<div class="sec-label">Layout P1 Existing & Project 2023</div>',
+            st.markdown('<div class="sec-label">Layout P1 Existing</div>',
                         unsafe_allow_html=True)
             existing_up = st.file_uploader("Layout Existing", type=["pdf"],
                                            label_visibility="collapsed", key="upload_existing")
@@ -1075,6 +1075,9 @@ with tab_ai:
             if os.path.exists(LAYOUT_EXISTING_FILE):
                 st.markdown(f'<div class="strip-success">✓ Layout Existing tersimpan — {os.path.getsize(LAYOUT_EXISTING_FILE)//1024} KB</div>',
                             unsafe_allow_html=True)
+                if st.button("🗑️ Hapus Layout Existing", key="del_existing"):
+                    os.remove(LAYOUT_EXISTING_FILE)
+                    st.rerun()
 
         with lc2:
             st.markdown('<div class="sec-label">Layout Blank Plant 1</div>', unsafe_allow_html=True)
@@ -1089,6 +1092,9 @@ with tab_ai:
             if os.path.exists(LAYOUT_BLANK_FILE):
                 st.markdown(f'<div class="strip-success">✓ Layout Blank tersimpan — {os.path.getsize(LAYOUT_BLANK_FILE)//1024} KB</div>',
                             unsafe_allow_html=True)
+                if st.button("🗑️ Hapus Layout Blank", key="del_blank"):
+                    os.remove(LAYOUT_BLANK_FILE)
+                    st.rerun()
 
         st.markdown("---")
         sc1, sc2, sc3 = st.columns(3)
