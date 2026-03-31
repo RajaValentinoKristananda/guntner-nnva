@@ -1094,11 +1094,6 @@ with tab_ai:
     # ════ SUB-TAB 1: Layout Setup ════════════════════════════════════════
     with sub_layout:
         st.markdown("### Factory Layout Knowledge Base")
-        st.markdown(
-            '<div class="strip-info">'
-            'Upload layout pabrik PT Guntner Plant 1. File disimpan permanen di folder '
-            '<code>data/</code> — tidak perlu upload ulang setiap sesi.'
-            '</div>', unsafe_allow_html=True)
 
         lc1, lc2 = st.columns(2)
         with lc1:
